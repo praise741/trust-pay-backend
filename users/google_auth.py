@@ -162,6 +162,7 @@ def google_login(request):
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'is_merchant': user.is_merchant,
+                'is_staff': user.is_staff,
                 'email_verified': user.email_verified,
             }
         }

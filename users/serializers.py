@@ -1,8 +1,29 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import SellerProfile
 
 User = get_user_model()
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Custom JWT serializer to include user data with is_staff field"""
+    
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # Add custom user data
+        data['user'] = {
+            'id': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email,
+            'phone': self.user.phone,
+            'is_merchant': self.user.is_merchant,
+            'is_staff': self.user.is_staff,
+            'email_verified': self.user.email_verified,
+        }
+        
+        return data
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -30,7 +51,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'phone', 'bank_name',
-                  'bank_account_number', 'bank_code', 'bank_account_name', 'is_merchant']
+                  'bank_account_number', 'bank_code', 'bank_account_name', 'is_merchant', 'is_staff']
 
 
 class SellerProfileSerializer(serializers.ModelSerializer):
