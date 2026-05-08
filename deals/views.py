@@ -62,23 +62,31 @@ def deal_pay(request, slug):
             {'error': 'Deal is not pending payment'},
             status=status.HTTP_400_BAD_REQUEST,
         )
-        
+
     # Track the logged-in user if they are paying a public link
     if request.user.is_authenticated and not deal.buyer_email:
         deal.buyer_email = request.user.email
         buyer_name = f"{request.user.first_name} {request.user.last_name}".strip()
         deal.buyer_name = buyer_name or request.user.username
         deal.buyer_phone = request.user.phone
-        
+
     va = create_virtual_account(deal)
     deal.va_account_number = va['account_number']
     deal.va_bank_name = va['bank_name']
     deal.va_reference = va['reference']
     deal.save()
+
+    from decimal import Decimal
+    fee_amount = deal.amount * deal.trust_fee_percent / Decimal('100')
+    net_amount = deal.amount - fee_amount
+
     return Response(DealPayResponseSerializer({
         'va_account_number': va['account_number'],
         'va_bank_name': va['bank_name'],
         'amount': deal.amount,
+        'trust_fee_percent': deal.trust_fee_percent,
+        'trust_fee_amount': fee_amount.quantize(Decimal('0.01')),
+        'seller_receives': net_amount.quantize(Decimal('0.01')),
     }).data)
 
 
@@ -171,11 +179,14 @@ def deal_confirm(request, slug):
             {'error': 'Deal is under dispute'},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    from decimal import Decimal
+    fee_amount = deal.amount * deal.trust_fee_percent / Decimal('100')
+    net_amount = deal.amount - fee_amount
     try:
         payout_seller(deal)
     except PayazaError:
         Transaction.objects.create(
-            deal=deal, tx_type='PAYOUT', status='FAILED', amount=deal.amount
+            deal=deal, tx_type='PAYOUT', status='FAILED', amount=net_amount
         )
         return Response(
             {'error': 'Payout failed, please try again'},
@@ -184,16 +195,17 @@ def deal_confirm(request, slug):
     deal.status = 'COMPLETED'
     deal.completed_at = timezone.now()
     deal.save()
+    # Record the net payout (after 1.5% trust fee)
     Transaction.objects.create(
-        deal=deal, tx_type='PAYOUT', status='SUCCESS', amount=deal.amount
+        deal=deal, tx_type='PAYOUT', status='SUCCESS', amount=net_amount
     )
-    
+
     # Send email notification to seller
     try:
         send_delivery_confirmed_email(deal)
     except Exception as e:
         print(f"Failed to send delivery confirmed email: {e}")
-    
+
     return Response(DealSerializer(deal).data)
 
 
@@ -239,6 +251,7 @@ def deal_mock_pay(request, slug):
     deal.status = 'PAID'
     deal.paid_at = timezone.now()
     deal.save()
+    # Record the full collection amount (buyer pays deal.amount)
     Transaction.objects.create(
         deal=deal, tx_type='COLLECTION', status='SUCCESS',
         amount=deal.amount, payaza_ref=f'mock-{deal.id}'

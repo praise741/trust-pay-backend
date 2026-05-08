@@ -1,8 +1,14 @@
+from decimal import Decimal
 from rest_framework import serializers
 from .models import Deal, Transaction, Dispute
 
+PLATFORM_FEE_PERCENT = Decimal('1.50')
+
 
 class DealSerializer(serializers.ModelSerializer):
+    trust_fee_amount = serializers.SerializerMethodField()
+    seller_receives = serializers.SerializerMethodField()
+
     class Meta:
         model = Deal
         fields = '__all__'
@@ -10,6 +16,14 @@ class DealSerializer(serializers.ModelSerializer):
                             'va_bank_name', 'va_reference', 'created_at',
                             'paid_at', 'shipped_at', 'auto_release_at',
                             'completed_at']
+
+    def get_trust_fee_amount(self, obj):
+        fee = obj.amount * obj.trust_fee_percent / Decimal('100')
+        return str(fee.quantize(Decimal('0.01')))
+
+    def get_seller_receives(self, obj):
+        net = obj.amount - (obj.amount * obj.trust_fee_percent / Decimal('100'))
+        return str(net.quantize(Decimal('0.01')))
 
 
 class DealCreateSerializer(serializers.ModelSerializer):
@@ -27,6 +41,9 @@ class DealPayResponseSerializer(serializers.Serializer):
     va_account_number = serializers.CharField()
     va_bank_name = serializers.CharField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    trust_fee_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    trust_fee_percent = serializers.DecimalField(max_digits=4, decimal_places=2)
+    seller_receives = serializers.DecimalField(max_digits=12, decimal_places=2)
 
 
 class TransactionSerializer(serializers.ModelSerializer):
