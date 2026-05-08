@@ -35,8 +35,10 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*']
 # CORS settings for frontend
 CORS_ALLOWED_ORIGINS = [
     'https://trust-pay-frontend.vercel.app',
+    'https://trust-pay-backend-v78l.onrender.com',
     'http://localhost:3000',
     'http://localhost:5173',
+    'http://localhost:8000',
 ]
 
 # Allow all origins in development (for testing)
@@ -55,6 +57,15 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 
@@ -199,7 +210,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # Changed from IsAuthenticated
     ],
 }
 
@@ -254,13 +265,22 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 # CSRF Settings
 CSRF_TRUSTED_ORIGINS = [
     'https://trust-pay-frontend.vercel.app',
+    'https://trust-pay-backend-v78l.onrender.com',
     'http://localhost:3000',
     'http://localhost:5173',
 ]
 
 # Add your Render backend URL when deployed
-RENDER_EXTERNAL_URL = os.getenv('RENDER_EXTERNAL_URL', '')
-if RENDER_EXTERNAL_URL:
+RENDER_EXTERNAL_URL = os.getenv('RENDER_EXTERNAL_URL', 'https://trust-pay-backend-v78l.onrender.com')
+if RENDER_EXTERNAL_URL and RENDER_EXTERNAL_URL not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(RENDER_EXTERNAL_URL)
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_URL.replace('https://', '').replace('http://', ''))
+    
+# Update ALLOWED_HOSTS
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'trust-pay-backend-v78l.onrender.com',
+    '.onrender.com',
+    '*'
+]
 
