@@ -62,6 +62,14 @@ def deal_pay(request, slug):
             {'error': 'Deal is not pending payment'},
             status=status.HTTP_400_BAD_REQUEST,
         )
+        
+    # Track the logged-in user if they are paying a public link
+    if request.user.is_authenticated and not deal.buyer_email:
+        deal.buyer_email = request.user.email
+        buyer_name = f"{request.user.first_name} {request.user.last_name}".strip()
+        deal.buyer_name = buyer_name or request.user.username
+        deal.buyer_phone = request.user.phone
+        
     va = create_virtual_account(deal)
     deal.va_account_number = va['account_number']
     deal.va_bank_name = va['bank_name']
