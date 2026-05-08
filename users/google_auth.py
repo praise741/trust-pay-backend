@@ -8,9 +8,30 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from django.conf import settings
 import logging
+import os
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+
+def validate_token_format(token):
+    """
+    Validate that token has the correct JWT format (3 parts separated by dots).
+    Returns: (is_valid, error_message)
+    """
+    if not isinstance(token, str):
+        return False, "Token must be a string"
+    
+    parts = token.split('.')
+    if len(parts) != 3:
+        return False, f"Invalid token format. Expected 3 parts separated by dots, got {len(parts)}"
+    
+    # Check each part is not empty
+    for i, part in enumerate(parts):
+        if not part:
+            return False, f"Token part {i+1} is empty"
+    
+    return True, None
 
 
 @api_view(['POST'])
@@ -29,7 +50,19 @@ def google_login(request):
         return Response(
             {
                 'error': 'Google token is required',
-                'detail': 'Please provide either "token" or "credential" in request body'
+                'detail': 'Please provide either "token" or "credential" in request body with a valid Google ID token'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validate token format first
+    is_valid, error_msg = validate_token_format(token)
+    if not is_valid:
+        logger.error(f"Invalid token format: {error_msg}")
+        return Response(
+            {
+                'error': 'Invalid token format',
+                'detail': error_msg + '. Please provide a valid Google ID token from Google OAuth.'
             },
             status=status.HTTP_400_BAD_REQUEST
         )
@@ -137,20 +170,21 @@ def google_login(request):
         return Response(response_data)
         
     except ValueError as e:
-        logger.error(f"Invalid Google token: {str(e)}")
+        error_str = str(e)
+        logger.error(f"Invalid Google token: {error_str}")
         return Response(
             {
                 'error': 'Invalid Google token',
-                'detail': str(e)
+                'detail': f"{error_str}. Make sure you are sending a valid Google ID token, not a test token."
             },
             status=status.HTTP_400_BAD_REQUEST
         )
     except Exception as e:
-        logger.error(f"Authentication failed: {str(e)}")
+        logger.error(f"Authentication failed: {str(e)}", exc_info=True)
         return Response(
             {
                 'error': 'Authentication failed',
-                'detail': str(e)
+                'detail': f'An unexpected error occurred during authentication. Please try again.'
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

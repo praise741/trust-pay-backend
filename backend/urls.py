@@ -18,8 +18,27 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+class APIRootView(APIView):
+    """API root endpoint"""
+    def get(self, request):
+        return Response({
+            'message': 'Trust Pay API',
+            'version': '1.0.0',
+            'endpoints': {
+                'auth': '/api/auth/',
+                'deals': '/api/deals/',
+                'admin': '/api/admin/',
+                'webhooks': '/api/webhooks/',
+                'merchant': '/api/merchant/',
+                'buyer': '/api/buyer/',
+            }
+        })
 
 urlpatterns = [
+    path('', APIRootView.as_view(), name='api-root'),
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/deals/', include('deals.urls')),
