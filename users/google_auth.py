@@ -74,7 +74,10 @@ def google_login(request):
         if not client_id:
             logger.error("GOOGLE_CLIENT_ID not configured")
             return Response(
-                {'error': 'Google OAuth not configured on server'},
+                {
+                    'error': 'Google OAuth not configured on server',
+                    'detail': 'GOOGLE_CLIENT_ID environment variable is not set. Please contact support.'
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         
@@ -189,3 +192,18 @@ def google_login(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def google_config_check(request):
+    """
+    Debug endpoint to check if Google OAuth is configured
+    """
+    client_id = settings.SOCIALACCOUNT_PROVIDERS.get('google', {}).get('APP', {}).get('client_id')
+    
+    return Response({
+        'google_oauth_configured': bool(client_id),
+        'client_id_preview': client_id[:20] + '...' if client_id else None,
+        'message': 'Google OAuth is configured' if client_id else 'GOOGLE_CLIENT_ID environment variable is not set'
+    })
