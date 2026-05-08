@@ -17,11 +17,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if username and password:
             # Check if username is actually an email
             if "@" in username:
-                try:
-                    user = User.objects.get(email=username)
+                user = User.objects.filter(email=username).first()
+                if user:
                     attrs["username"] = user.username
-                except User.DoesNotExist:
-                    pass
 
         data = super().validate(attrs)
         
