@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: {% if resolution_type == 'refund' %}#4CAF50{% else %}#f44336{% endif %}; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; margin: 20px 0; }
+        .button { background: #2196F3; color: white; padding: 12px 24px; text-decoration: none; display: inline-block; margin: 10px 0; border-radius: 4px; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+        .info-box { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #2196F3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{% if resolution_type == 'refund' %}✅ Dispute Resolved - Refund Processed{% else %}⚠️ Dispute Resolved - Payment Released to Seller{% endif %}</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Your dispute has been resolved</h2>
+            <p>Our admin team has reviewed your case and made a decision.</p>
+            
+            <div class="info-box">
+                <p><strong>Item:</strong> {{ deal.item_description }}</p>
+                <p><strong>Amount:</strong> ₦{{ deal.amount|floatformat:2 }}</p>
+                <p><strong>Resolution:</strong> {% if resolution_type == 'refund' %}Refund Processed{% else %}Payment Released to Seller{% endif %}</p>
+            </div>
+            
+            {% if resolution_type == 'refund' %}
+            <p>Good news! After reviewing your case, we've decided to issue a full refund. The funds will be returned to your original payment method within 3-5 business days.</p>
+            {% else %}
+            <p>After reviewing the case, we've decided to release the payment to the seller. We understand this may not be the outcome you hoped for, but this decision was made after careful consideration of all evidence.</p>
+            {% endif %}
+            
+            <a href="{{ frontend_url }}/deals/{{ deal.slug }}" class="button">View Deal Details</a>
+        </div>
+        
+        <div class="footer">
+            <p>TrustPay - Secure Escrow Payments</p>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>

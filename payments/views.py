@@ -7,6 +7,7 @@ import json
 
 from deals.models import Deal, Transaction
 from payments.payaza import verify_webhook_signature
+from deals.email_service import send_payment_received_email
 
 
 @api_view(['POST'])
@@ -42,6 +43,12 @@ def payaza_webhook(request):
             deal=deal, tx_type='COLLECTION', status='SUCCESS',
             amount=deal.amount, payaza_ref=data.get('transaction_id', '')
         )
+        
+        # Send email notification to seller
+        try:
+            send_payment_received_email(deal)
+        except Exception as e:
+            print(f"Failed to send payment email: {e}")
 
     elif event_type == 'payment.failed':
         if not deal:

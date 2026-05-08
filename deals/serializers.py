@@ -16,7 +16,7 @@ class DealCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Deal
         fields = ['item_description', 'amount', 'delivery_days',
-                  'buyer_email', 'buyer_phone']
+                  'buyer_email', 'buyer_phone', 'buyer_name', 'delivery_address']
 
 
 class DealPayResponseSerializer(serializers.Serializer):

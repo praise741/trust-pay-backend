@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from .models import SellerProfile
 
 User = get_user_model()
 
@@ -17,6 +18,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User(**validated_data)
         user.set_password(password)
         user.save()
+        
+        # Create seller profile if merchant
+        if validated_data.get('is_merchant', False):
+            SellerProfile.objects.create(user=user)
+        
         return user
 
 
@@ -24,4 +30,32 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'phone', 'bank_name',
-                  'bank_account_number', 'bank_code', 'is_merchant']
+                  'bank_account_number', 'bank_code', 'is_merchant',
+                  'email_verified', 'phone_verified']
+
+
+class SellerProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    
+    class Meta:
+        model = SellerProfile
+        fields = ['id', 'username', 'email', 'business_name', 'business_description',
+                  'profile_photo', 'instagram_handle', 'whatsapp_number',
+                  'twitter_handle', 'website_url', 'is_verified',
+                  'total_deals', 'completed_deals', 'completion_rate',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'username', 'email', 'is_verified',
+                           'total_deals', 'completed_deals', 'completion_rate',
+                           'created_at', 'updated_at']
+
+
+class PublicSellerProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = SellerProfile
+        fields = ['username', 'business_name', 'business_description',
+                  'profile_photo', 'instagram_handle', 'whatsapp_number',
+                  'twitter_handle', 'website_url', 'is_verified',
+                  'total_deals', 'completed_deals', 'completion_rate']

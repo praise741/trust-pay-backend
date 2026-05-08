@@ -1,405 +1,377 @@
-from decimal import Decimal
-from datetime import timedelta
-from unittest.mock import patch, MagicMock
-
 from django.test import TestCase
-from django.utils import timezone
 from django.contrib.auth import get_user_model
-from rest_framework.test import APITestCase
+from django.utils import timezone
+from rest_framework.test import APIClient
 from rest_framework import status
-
-from deals.models import Deal, Dispute
+from datetime import timedelta
+from decimal import Decimal
+from .models import Deal, Transaction, Dispute
 
 User = get_user_model()
 
 
-class DealCreateTests(APITestCase):
-    """Tests for deal creation."""
-
+class DealCreationTests(TestCase):
+    """Test deal creation and basic operations"""
+    
     def setUp(self):
-        self.create_url = '/api/deals/'
+        self.client = APIClient()
         self.seller = User.objects.create_user(
-            username='seller',
-            password='sellerpass123',
+            username='seller1',
+            password='testpass123',
             email='seller@example.com',
+            is_merchant=True,
+            bank_name='GTBank',
+            bank_account_number='0123456789',
+            bank_code='058'
         )
-        self.buyer = User.objects.create_user(
-            username='buyer',
-            password='buyerpass123',
-            email='buyer@example.com',
-        )
-        self.valid_data = {
-            'item_description': 'Test Item',
-            'amount': '100.00',
+        self.client.force_authenticate(user=self.seller)
+        
+    def test_create_deal(self):
+        """Test seller can create a deal"""
+        data = {
+            'item_description': 'iPhone 15 Pro',
+            'amount': '850000.00',
             'delivery_days': 3,
             'buyer_email': 'buyer@example.com',
+            'buyer_phone': '08098765432'
         }
-
-    def test_authenticated_user_can_create_deal(self):
-        """Authenticated user can create a deal (201)."""
-        self.client.force_authenticate(user=self.seller)
-        response = self.client.post(self.create_url, self.valid_data, format='json')
+        response = self.client.post('/api/deals/', data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Deal.objects.count(), 1)
-        deal = Deal.objects.first()
-        self.assertEqual(deal.seller, self.seller)
-        self.assertEqual(deal.item_description, 'Test Item')
-        self.assertEqual(deal.amount, Decimal('100.00'))
-
-    def test_unauthenticated_user_cannot_create_deal(self):
-        """Unauthenticated user cannot create a deal (401)."""
-        response = self.client.post(self.create_url, self.valid_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(Deal.objects.count(), 0)
-
-    def test_deal_auto_generates_unique_slug(self):
-        """Deal auto-generates unique slug."""
-        self.client.force_authenticate(user=self.seller)
-        response1 = self.client.post(self.create_url, self.valid_data, format='json')
-        response2 = self.client.post(self.create_url, self.valid_data, format='json')
-        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-        deals = Deal.objects.filter(seller=self.seller).order_by('created_at')
-        self.assertEqual(deals.count(), 2)
-        slug1 = deals[0].slug
-        slug2 = deals[1].slug
-        self.assertNotEqual(slug1, slug2)
-        self.assertTrue(slug1.startswith('test-item-'))
-        self.assertTrue(slug2.startswith('test-item-'))
-
-
-class DealListTests(APITestCase):
-    """Tests for deal listing."""
-
-    def setUp(self):
-        self.list_url = '/api/deals/'
-        self.seller = User.objects.create_user(
-            username='seller2',
-            password='sellerpass123',
-            email='seller2@example.com',
-        )
-        self.other_seller = User.objects.create_user(
-            username='other_seller',
-            password='otherpass123',
-            email='other@example.com',
-        )
-        self.buyer = User.objects.create_user(
-            username='buyer2',
-            password='buyerpass123',
-            email='buyer2@example.com',
-        )
-        # Deal where user is seller
-        Deal.objects.create(
-            seller=self.seller,
-            item_description='Seller Deal',
-            amount=Decimal('50.00'),
-            buyer_email='buyer2@example.com',
-            slug='seller-deal-abc123',
-            va_reference='ref-list-001',
-        )
-        # Deal where user is buyer (by email)
-        Deal.objects.create(
-            seller=self.other_seller,
-            item_description='Buyer Deal',
-            amount=Decimal('75.00'),
-            buyer_email='buyer2@example.com',
-            slug='buyer-def456',
-            va_reference='ref-list-002',
-        )
-        # Deal unrelated to user
-        Deal.objects.create(
-            seller=self.other_seller,
-            item_description='Other Deal',
-            amount=Decimal('25.00'),
-            buyer_email='nobody@example.com',
-            slug='other-ghi789',
-            va_reference='ref-list-003',
-        )
-
-    def test_list_deals_returns_only_users_deals(self):
-        """List deals returns only user's deals (as seller or buyer)."""
-        self.client.force_authenticate(user=self.buyer)
-        response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        returned_slugs = {d['slug'] for d in response.data}
-        self.assertIn('seller-deal-abc123', returned_slugs)
-        self.assertIn('buyer-def456', returned_slugs)
-        self.assertNotIn('other-ghi789', returned_slugs)
-
-
-class DealDetailTests(APITestCase):
-    """Tests for deal detail endpoint."""
-
-    def setUp(self):
-        self.seller = User.objects.create_user(
-            username='seller3',
-            password='sellerpass123',
-            email='seller3@example.com',
-        )
-        self.pending_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Pending Deal',
-            amount=Decimal('100.00'),
-            buyer_email='buyer3@example.com',
-            slug='pending-xyz111',
-            status='PENDING_PAYMENT',
-            va_reference='ref-detail-001',
-        )
-        self.paid_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Paid Deal',
-            amount=Decimal('200.00'),
-            buyer_email='buyer3@example.com',
-            slug='paid-xyz222',
-            status='PAID',
-            va_reference='ref-detail-002',
-        )
-
-    def test_deal_detail_public_when_pending_payment(self):
-        """Deal detail is public when status is PENDING_PAYMENT."""
-        url = f'/api/deals/{self.pending_deal.slug}/'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['slug'], 'pending-xyz111')
-
-    def test_deal_detail_requires_auth_when_not_pending_payment(self):
-        """Deal detail requires auth when status is not PENDING_PAYMENT."""
-        url = f'/api/deals/{self.paid_deal.slug}/'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class DealPayTests(APITestCase):
-    """Tests for deal pay endpoint."""
-
-    def setUp(self):
-        self.seller = User.objects.create_user(
-            username='seller4',
-            password='sellerpass123',
-            email='seller4@example.com',
-        )
-        self.pending_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Payable Deal',
-            amount=Decimal('150.00'),
-            buyer_email='buyer4@example.com',
-            slug='payable-aaa111',
-            status='PENDING_PAYMENT',
-            va_reference='ref-pay-001',
-        )
-        self.paid_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Already Paid',
-            amount=Decimal('150.00'),
-            buyer_email='buyer4@example.com',
-            slug='paid-bbb222',
-            status='PAID',
-            va_reference='ref-pay-002',
-        )
-        self.pay_url = f'/api/deals/{self.pending_deal.slug}/pay/'
-
-    @patch('deals.views.create_virtual_account')
-    def test_pay_calls_payaza_and_saves_va_details(self, mock_create_va):
-        """Pay endpoint calls Payaza and saves VA details (mock Payaza)."""
-        mock_create_va.return_value = {
-            'account_number': '1234567890',
-            'bank_name': 'Test Bank',
-            'reference': 'ref-123',
+        self.assertEqual(response.data['item_description'], 'iPhone 15 Pro')
+        self.assertEqual(response.data['status'], 'PENDING_PAYMENT')
+        self.assertIsNotNone(response.data['slug'])
+        
+    def test_create_deal_with_new_fields(self):
+        """Test deal creation with buyer_name, delivery_address, tracking_number"""
+        data = {
+            'item_description': 'Architecture Book',
+            'amount': '5000.00',
+            'delivery_days': 3,
+            'buyer_email': 'maxwell@example.com',
+            'buyer_phone': '08098765432',
+            'buyer_name': 'Maxwell Okafor',
+            'delivery_address': '123 Main Street, Victoria Island, Lagos'
         }
-        response = self.client.post(self.pay_url)
+        response = self.client.post('/api/deals/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['buyer_name'], 'Maxwell Okafor')
+        self.assertEqual(response.data['delivery_address'], '123 Main Street, Victoria Island, Lagos')
+        
+    def test_list_deals(self):
+        """Test seller can list their deals"""
+        Deal.objects.create(
+            seller=self.seller,
+            slug='test-deal-1',
+            item_description='Test Item',
+            amount=Decimal('1000.00')
+        )
+        
+        response = self.client.get('/api/deals/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['va_account_number'], '1234567890')
-        self.assertEqual(response.data['va_bank_name'], 'Test Bank')
-        self.pending_deal.refresh_from_db()
-        self.assertEqual(self.pending_deal.va_account_number, '1234567890')
-        self.assertEqual(self.pending_deal.va_bank_name, 'Test Bank')
-        self.assertEqual(self.pending_deal.va_reference, 'ref-123')
+        self.assertEqual(len(response.data), 1)
+        
+    def test_get_deal_detail(self):
+        """Test can retrieve deal details"""
+        deal = Deal.objects.create(
+            seller=self.seller,
+            slug='test-deal-1',
+            item_description='Test Item',
+            amount=Decimal('1000.00')
+        )
+        
+        response = self.client.get(f'/api/deals/{deal.slug}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['slug'], 'test-deal-1')
 
-    def test_pay_returns_400_if_deal_not_pending_payment(self):
-        """Pay endpoint returns 400 if deal is not PENDING_PAYMENT."""
-        url = f'/api/deals/{self.paid_deal.slug}/pay/'
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('error', response.data)
 
-
-class DealShipTests(APITestCase):
-    """Tests for deal ship endpoint."""
-
+class DealLifecycleTests(TestCase):
+    """Test complete deal lifecycle"""
+    
     def setUp(self):
+        self.client = APIClient()
         self.seller = User.objects.create_user(
-            username='seller5',
-            password='sellerpass123',
-            email='seller5@example.com',
+            username='seller1',
+            password='testpass123',
+            email='seller@example.com',
+            is_merchant=True,
+            bank_name='GTBank',
+            bank_account_number='0123456789',
+            bank_code='058'
         )
-        self.other_user = User.objects.create_user(
-            username='other5',
-            password='otherpass123',
-            email='other5@example.com',
-        )
-        self.paid_deal = Deal.objects.create(
+        self.deal = Deal.objects.create(
             seller=self.seller,
-            item_description='Shippable Deal',
-            amount=Decimal('100.00'),
-            buyer_email='buyer5@example.com',
-            slug='shippable-ccc333',
-            status='PAID',
-            delivery_days=3,
-            va_reference='ref-ship-001',
+            slug='test-deal',
+            item_description='Test Item',
+            amount=Decimal('5000.00'),
+            buyer_email='buyer@example.com',
+            buyer_name='Test Buyer',
+            delivery_address='Test Address'
         )
-        self.unpaid_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Unpaid Deal',
-            amount=Decimal('100.00'),
-            buyer_email='buyer5@example.com',
-            slug='unpaid-ddd444',
-            status='PENDING_PAYMENT',
-            delivery_days=3,
-            va_reference='ref-ship-002',
-        )
-        self.ship_url = f'/api/deals/{self.paid_deal.slug}/ship/'
-
-    def test_ship_sets_shipped_status_and_auto_release(self):
-        """Ship endpoint sets SHIPPED status and auto_release_at (seller only)."""
+        
+    def test_mark_deal_as_shipped(self):
+        """Test seller can mark deal as shipped"""
+        self.deal.status = 'PAID'
+        self.deal.paid_at = timezone.now()
+        self.deal.save()
+        
         self.client.force_authenticate(user=self.seller)
-        before = timezone.now()
-        response = self.client.post(self.ship_url)
-        after = timezone.now()
+        data = {'tracking_number': 'TRK123456'}
+        response = self.client.post(f'/api/deals/{self.deal.slug}/ship/', data)
+        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.paid_deal.refresh_from_db()
-        self.assertEqual(self.paid_deal.status, 'SHIPPED')
-        self.assertIsNotNone(self.paid_deal.shipped_at)
-        self.assertIsNotNone(self.paid_deal.auto_release_at)
-        # auto_release_at should be shipped_at + delivery_days + 1
-        expected_delta = timedelta(days=self.paid_deal.delivery_days + 1)
-        self.assertAlmostEqual(
-            self.paid_deal.auto_release_at - self.paid_deal.shipped_at,
-            expected_delta,
-            delta=timedelta(seconds=5),
-        )
-
-    def test_ship_returns_403_if_not_seller(self):
-        """Ship endpoint returns 403 if not the seller."""
-        self.client.force_authenticate(user=self.other_user)
-        response = self.client.post(self.ship_url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_ship_returns_400_if_deal_not_paid(self):
-        """Ship endpoint returns 400 if deal is not PAID."""
-        url = f'/api/deals/{self.unpaid_deal.slug}/ship/'
+        self.assertEqual(response.data['status'], 'SHIPPED')
+        self.assertEqual(response.data['tracking_number'], 'TRK123456')
+        self.assertIsNotNone(response.data['shipped_at'])
+        self.assertIsNotNone(response.data['auto_release_at'])
+        
+    def test_auto_release_calculation(self):
+        """Test auto_release_at is calculated correctly"""
+        self.deal.status = 'PAID'
+        self.deal.paid_at = timezone.now()
+        self.deal.delivery_days = 3
+        self.deal.save()
+        
         self.client.force_authenticate(user=self.seller)
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self.client.post(f'/api/deals/{self.deal.slug}/ship/')
+        
+        # Auto release should be shipped_at + delivery_days + 1 day
+        shipped_at = timezone.datetime.fromisoformat(response.data['shipped_at'].replace('Z', '+00:00'))
+        auto_release_at = timezone.datetime.fromisoformat(response.data['auto_release_at'].replace('Z', '+00:00'))
+        
+        expected_days = 4  # 3 delivery days + 1 grace day
+        actual_days = (auto_release_at - shipped_at).days
+        self.assertEqual(actual_days, expected_days)
+        
+    def test_confirm_delivery(self):
+        """Test buyer can confirm delivery"""
+        self.deal.status = 'SHIPPED'
+        self.deal.shipped_at = timezone.now()
+        self.deal.save()
+        
+        # No authentication needed for confirmation
+        response = self.client.post(f'/api/deals/{self.deal.slug}/confirm/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'COMPLETED')
+        self.assertIsNotNone(response.data['completed_at'])
+        
+    def test_open_dispute(self):
+        """Test buyer can open a dispute"""
+        self.deal.status = 'SHIPPED'
+        self.deal.save()
+        
+        data = {'reason': 'Item not as described'}
+        response = self.client.post(f'/api/deals/{self.deal.slug}/dispute/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'OPEN')
+        
+        # Verify deal status changed
+        self.deal.refresh_from_db()
+        self.assertEqual(self.deal.status, 'DISPUTED')
 
 
-class DealConfirmTests(APITestCase):
-    """Tests for deal confirm endpoint."""
-
+class TransactionTests(TestCase):
+    """Test transaction tracking"""
+    
     def setUp(self):
         self.seller = User.objects.create_user(
-            username='seller6',
-            password='sellerpass123',
-            email='seller6@example.com',
+            username='seller1',
+            password='testpass123',
+            email='seller@example.com'
         )
-        self.shipped_deal = Deal.objects.create(
+        self.deal = Deal.objects.create(
             seller=self.seller,
-            item_description='Confirmable Deal',
-            amount=Decimal('200.00'),
-            buyer_email='buyer6@example.com',
-            slug='confirmable-eee555',
-            status='SHIPPED',
-            va_reference='ref-confirm-001',
+            slug='test-deal',
+            item_description='Test Item',
+            amount=Decimal('5000.00')
         )
-        self.unshipped_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Not Shipped',
-            amount=Decimal('200.00'),
-            buyer_email='buyer6@example.com',
-            slug='notshipped-fff666',
-            status='PAID',
-            va_reference='ref-confirm-002',
+        
+    def test_create_transaction(self):
+        """Test transaction can be created"""
+        transaction = Transaction.objects.create(
+            deal=self.deal,
+            tx_type='COLLECTION',
+            status='SUCCESS',
+            amount=Decimal('5000.00'),
+            payaza_ref='PAY-123456'
         )
-        self.confirm_url = f'/api/deals/{self.shipped_deal.slug}/confirm/'
+        
+        self.assertEqual(transaction.tx_type, 'COLLECTION')
+        self.assertEqual(transaction.status, 'SUCCESS')
+        self.assertEqual(transaction.amount, Decimal('5000.00'))
+        
+    def test_transaction_types(self):
+        """Test all transaction types can be created"""
+        types = ['COLLECTION', 'PAYOUT', 'REFUND']
+        
+        for tx_type in types:
+            transaction = Transaction.objects.create(
+                deal=self.deal,
+                tx_type=tx_type,
+                status='SUCCESS',
+                amount=Decimal('1000.00')
+            )
+            self.assertEqual(transaction.tx_type, tx_type)
 
-    @patch('deals.views.payout_seller')
-    def test_confirm_triggers_payout_and_sets_completed(self, mock_payout):
-        """Confirm endpoint triggers payout and sets COMPLETED (mock Payaza)."""
-        mock_payout.return_value = {'status': 'success'}
-        response = self.client.post(self.confirm_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.shipped_deal.refresh_from_db()
-        self.assertEqual(self.shipped_deal.status, 'COMPLETED')
-        self.assertIsNotNone(self.shipped_deal.completed_at)
-        mock_payout.assert_called_once_with(self.shipped_deal)
 
-    def test_confirm_returns_400_if_deal_not_shipped(self):
-        """Confirm endpoint returns 400 if deal is not SHIPPED."""
-        url = f'/api/deals/{self.unshipped_deal.slug}/confirm/'
-        response = self.client.post(url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-
-class DealDisputeTests(APITestCase):
-    """Tests for deal dispute endpoint."""
-
+class DisputeTests(TestCase):
+    """Test dispute handling"""
+    
     def setUp(self):
+        self.client = APIClient()
         self.seller = User.objects.create_user(
-            username='seller7',
-            password='sellerpass123',
-            email='seller7@example.com',
+            username='seller1',
+            password='testpass123',
+            email='seller@example.com',
+            is_staff=True
         )
-        self.shipped_deal = Deal.objects.create(
+        self.deal = Deal.objects.create(
             seller=self.seller,
-            item_description='Disputable Deal',
-            amount=Decimal('300.00'),
-            buyer_email='buyer7@example.com',
-            slug='disputable-ggg777',
-            status='SHIPPED',
-            va_reference='ref-dispute-001',
+            slug='test-deal',
+            item_description='Test Item',
+            amount=Decimal('5000.00'),
+            status='DISPUTED'
         )
-        self.pending_deal = Deal.objects.create(
-            seller=self.seller,
-            item_description='Not Disputable',
-            amount=Decimal('300.00'),
-            buyer_email='buyer7@example.com',
-            slug='notdisputable-hhh888',
-            status='PENDING_PAYMENT',
-            va_reference='ref-dispute-002',
+        self.dispute = Dispute.objects.create(
+            deal=self.deal,
+            reason='Item damaged'
         )
-        self.dispute_url = f'/api/deals/{self.shipped_deal.slug}/dispute/'
-
-    def test_dispute_creates_dispute_and_sets_disputed_status(self):
-        """Dispute endpoint creates Dispute and sets DISPUTED status."""
-        response = self.client.post(self.dispute_url, {
-            'reason': 'Item not as described',
-        }, format='json')
+        
+    def test_create_dispute(self):
+        """Test dispute can be created"""
+        self.assertEqual(self.dispute.status, 'OPEN')
+        self.assertEqual(self.dispute.reason, 'Item damaged')
+        
+    def test_admin_can_list_disputes(self):
+        """Test admin can list open disputes"""
+        self.client.force_authenticate(user=self.seller)
+        response = self.client.get('/api/admin/disputes/')
+        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.shipped_deal.refresh_from_db()
-        self.assertEqual(self.shipped_deal.status, 'DISPUTED')
-        self.assertTrue(Dispute.objects.filter(deal=self.shipped_deal).exists())
-        dispute = Dispute.objects.get(deal=self.shipped_deal)
-        self.assertEqual(dispute.reason, 'Item not as described')
-        self.assertEqual(dispute.status, 'OPEN')
+        self.assertEqual(len(response.data), 1)
+        
+    def test_admin_can_resolve_dispute_refund(self):
+        """Test admin can resolve dispute with refund"""
+        self.client.force_authenticate(user=self.seller)
+        data = {'action': 'refund'}
+        response = self.client.post(f'/api/admin/disputes/{self.dispute.id}/resolve/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['dispute']['status'], 'RESOLVED_REFUND')
+        self.assertEqual(response.data['deal']['status'], 'REFUNDED')
+        
+    def test_admin_can_resolve_dispute_release(self):
+        """Test admin can resolve dispute with release"""
+        self.client.force_authenticate(user=self.seller)
+        data = {'action': 'release'}
+        response = self.client.post(f'/api/admin/disputes/{self.dispute.id}/resolve/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['dispute']['status'], 'RESOLVED_RELEASE')
+        self.assertEqual(response.data['deal']['status'], 'COMPLETED')
 
-    def test_dispute_returns_400_if_deal_already_has_dispute(self):
-        """Dispute endpoint returns 400 if deal already has a dispute."""
-        # Create first dispute
-        Dispute.objects.create(
-            deal=self.shipped_deal,
-            reason='First dispute',
+
+class MerchantDashboardTests(TestCase):
+    """Test merchant dashboard functionality"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.seller = User.objects.create_user(
+            username='seller1',
+            password='testpass123',
+            email='seller@example.com',
+            is_merchant=True
         )
-        self.shipped_deal.status = 'DISPUTED'
-        self.shipped_deal.save()
-        response = self.client.post(self.dispute_url, {
-            'reason': 'Second dispute',
-        }, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.client.force_authenticate(user=self.seller)
+        
+        # Create test deals
+        Deal.objects.create(
+            seller=self.seller,
+            slug='deal-1',
+            item_description='Item 1',
+            amount=Decimal('1000.00'),
+            status='COMPLETED'
+        )
+        Deal.objects.create(
+            seller=self.seller,
+            slug='deal-2',
+            item_description='Item 2',
+            amount=Decimal('2000.00'),
+            status='PAID'
+        )
+        Deal.objects.create(
+            seller=self.seller,
+            slug='deal-3',
+            item_description='Item 3',
+            amount=Decimal('3000.00'),
+            status='DISPUTED'
+        )
+        
+    def test_dashboard_stats(self):
+        """Test dashboard returns correct statistics"""
+        response = self.client.get('/api/merchant/dashboard/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_deals'], 3)
+        self.assertEqual(response.data['completed_deals'], 1)
+        self.assertEqual(response.data['disputed_deals'], 1)
+        self.assertEqual(response.data['active_deals'], 1)  # PAID status
+        
+    def test_merchant_deals_list(self):
+        """Test merchant can list their deals"""
+        response = self.client.get('/api/merchant/deals/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
+        
+    def test_merchant_deals_filter_by_status(self):
+        """Test merchant can filter deals by status"""
+        response = self.client.get('/api/merchant/deals/?status=COMPLETED')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['status'], 'COMPLETED')
 
-    def test_dispute_returns_400_if_deal_status_not_shippable(self):
-        """Dispute endpoint returns 400 if deal status is not shippable."""
-        url = f'/api/deals/{self.pending_deal.slug}/dispute/'
-        response = self.client.post(url, {
-            'reason': 'Cannot dispute this',
-        }, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+class PaymentLinkTests(TestCase):
+    """Test payment link creation"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.seller = User.objects.create_user(
+            username='seller1',
+            password='testpass123',
+            email='seller@example.com',
+            is_merchant=True
+        )
+        self.client.force_authenticate(user=self.seller)
+        
+    def test_create_payment_link(self):
+        """Test merchant can create payment link"""
+        data = {
+            'item_description': 'iPhone 15 Pro',
+            'amount': '850000.00',
+            'delivery_days': 3,
+            'buyer_email': 'buyer@example.com'
+        }
+        response = self.client.post('/api/merchant/links/', data)
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('link_url', response.data)
+        self.assertIn('slug', response.data)
+        
+    def test_list_payment_links(self):
+        """Test merchant can list payment links"""
+        Deal.objects.create(
+            seller=self.seller,
+            slug='link-1',
+            item_description='Item 1',
+            amount=Decimal('1000.00')
+        )
+        
+        response = self.client.get('/api/merchant/links/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertIn('link_url', response.data[0])

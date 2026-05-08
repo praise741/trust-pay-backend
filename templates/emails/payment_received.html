@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; margin: 20px 0; }
+        .button { background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; display: inline-block; margin: 10px 0; border-radius: 4px; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+        .amount { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        .info-box { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Payment Received!</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Great news, {{ seller.username }}!</h2>
+            <p>You've received a payment for your item:</p>
+            
+            <div class="info-box">
+                <p><strong>Item:</strong> {{ deal.item_description }}</p>
+                <p><strong>Amount:</strong> <span class="amount">₦{{ deal.amount|floatformat:2 }}</span></p>
+                <p><strong>Buyer Email:</strong> {{ deal.buyer_email|default:"Not provided" }}</p>
+                <p><strong>Buyer Phone:</strong> {{ deal.buyer_phone|default:"Not provided" }}</p>
+                {% if deal.buyer_name %}
+                <p><strong>Buyer Name:</strong> {{ deal.buyer_name }}</p>
+                {% endif %}
+                {% if deal.delivery_address %}
+                <p><strong>Delivery Address:</strong> {{ deal.delivery_address }}</p>
+                {% endif %}
+            </div>
+            
+            <h3>📦 Next Steps:</h3>
+            <ol>
+                <li>Prepare the item for shipping</li>
+                <li>Ship to the buyer's address</li>
+                <li>Mark the order as "Shipped" in your dashboard</li>
+            </ol>
+            
+            {% if expected_delivery %}
+            <p><strong>Expected Delivery:</strong> {{ expected_delivery|date:"F d, Y" }}</p>
+            {% endif %}
+            
+            <p><strong>⏰ Important:</strong> The buyer has {{ deal.delivery_days }} days to confirm delivery. After that, funds will be automatically released to your account if no dispute is raised.</p>
+            
+            <a href="{{ frontend_url }}/merchant/deals/{{ deal.slug }}" class="button">View Deal Details</a>
+        </div>
+        
+        <div class="footer">
+            <p>TrustPay - Secure Escrow Payments</p>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>

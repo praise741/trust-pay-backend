@@ -17,6 +17,13 @@ from .serializers import (
     DisputeSerializer, DisputeCreateSerializer,
 )
 from payments.payaza import create_virtual_account, payout_seller, refund_buyer, PayazaError
+from .email_service import (
+    send_payment_received_email,
+    send_shipping_notification_email,
+    send_delivery_confirmed_email,
+    send_dispute_opened_email_to_seller,
+    send_dispute_opened_email_to_buyer,
+)
 
 
 class DealListCreateView(generics.ListCreateAPIView):
@@ -92,8 +99,61 @@ def deal_ship(request, slug):
     deal.status = 'SHIPPED'
     deal.shipped_at = now
     deal.auto_release_at = now + timedelta(days=deal.delivery_days + 1)
+    
+    # Get tracking number from request if provided
+    tracking_number = request.data.get('tracking_number', '')
+    if tracking_number:
+        deal.tracking_number = tracking_number
+    
     deal.save()
+    
+    # Send email notification to buyer
+    try:
+        send_shipping_notification_email(deal)
+    except Exception as e:
+        # Log error but don't fail the request
+        print(f"Failed to send shipping email: {e}")
+    
     return Response(DealSerializer(deal).data)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_tracking(request, slug):
+    """
+    Update tracking number for a shipped deal
+    PUT /api/deals/{slug}/tracking/
+    Body: { "tracking_number": "TRK123456" }
+    """
+    deal = generics.get_object_or_404(Deal, slug=slug)
+    
+    if deal.seller != request.user:
+        return Response(
+            {'error': 'Only the seller can update tracking information'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    
+    if deal.status not in ['PAID', 'SHIPPED']:
+        return Response(
+            {'error': 'Can only update tracking for paid or shipped deals'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    tracking_number = request.data.get('tracking_number')
+    if not tracking_number:
+        return Response(
+            {'error': 'Tracking number is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    deal.tracking_number = tracking_number
+    deal.save()
+    
+    return Response({
+        'message': 'Tracking number updated successfully',
+        'tracking_number': deal.tracking_number,
+        'deal': DealSerializer(deal).data
+    })
 
 
 @api_view(['POST'])
@@ -126,6 +186,13 @@ def deal_confirm(request, slug):
     Transaction.objects.create(
         deal=deal, tx_type='PAYOUT', status='SUCCESS', amount=deal.amount
     )
+    
+    # Send email notification to seller
+    try:
+        send_delivery_confirmed_email(deal)
+    except Exception as e:
+        print(f"Failed to send delivery confirmed email: {e}")
+    
     return Response(DealSerializer(deal).data)
 
 
@@ -146,7 +213,15 @@ def deal_dispute(request, slug):
             status=status.HTTP_400_BAD_REQUEST,
         )
     with transaction.atomic():
-        Dispute.objects.create(deal=deal, reason=serializer.validated_data['reason'])
+        dispute = Dispute.objects.create(deal=deal, reason=serializer.validated_data['reason'])
         deal.status = 'DISPUTED'
         deal.save()
-    return Response({'dispute_id': deal.dispute.id, 'status': 'OPEN'})
+    
+    # Send email notifications
+    try:
+        send_dispute_opened_email_to_seller(deal, dispute)
+        send_dispute_opened_email_to_buyer(deal, dispute)
+    except Exception as e:
+        print(f"Failed to send dispute emails: {e}")
+    
+    return Response({'dispute_id': dispute.id, 'status': 'OPEN'})

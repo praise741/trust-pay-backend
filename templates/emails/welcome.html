@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; margin: 20px 0; }
+        .button { background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; display: inline-block; margin: 10px 0; border-radius: 4px; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+        .feature { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #4CAF50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Welcome to TrustPay!</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hi {{ user.username }},</h2>
+            <p>Welcome to TrustPay - the secure escrow payment platform that protects both buyers and sellers!</p>
+            
+            <h3>🚀 Get Started:</h3>
+            
+            <div class="feature">
+                <h4>For Sellers:</h4>
+                <ul>
+                    <li>Create payment links for your products</li>
+                    <li>Share links with buyers on Instagram, WhatsApp, etc.</li>
+                    <li>Get paid securely after delivery confirmation</li>
+                </ul>
+            </div>
+            
+            <div class="feature">
+                <h4>For Buyers:</h4>
+                <ul>
+                    <li>Pay securely with funds held in escrow</li>
+                    <li>Confirm delivery when you receive your item</li>
+                    <li>Open disputes if there's an issue</li>
+                </ul>
+            </div>
+            
+            <p><strong>💡 How It Works:</strong></p>
+            <ol>
+                <li>Seller creates a deal and shares the payment link</li>
+                <li>Buyer pays - funds are held securely</li>
+                <li>Seller ships the item</li>
+                <li>Buyer confirms delivery</li>
+                <li>Funds are released to seller</li>
+            </ol>
+            
+            <a href="{{ frontend_url }}/dashboard" class="button">Go to Dashboard</a>
+        </div>
+        
+        <div class="footer">
+            <p>TrustPay - Secure Escrow Payments</p>
+            <p>Need help? Contact us at support@trustpay.ng</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,4 +26,10 @@ urlpatterns = [
     path('api/admin/', include('deals.admin_api.urls')),
     path('api/webhooks/', include('payments.urls')),
     path('api/merchant/', include('deals.merchant.urls')),
+    path('api/buyer/', include('deals.buyer.urls')),
+    path('accounts/', include('allauth.urls')),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

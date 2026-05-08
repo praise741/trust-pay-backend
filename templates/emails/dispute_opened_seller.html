@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #ff9800; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; margin: 20px 0; }
+        .button { background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; display: inline-block; margin: 10px 0; border-radius: 4px; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+        .info-box { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #ff9800; }
+        .warning { background: #fff3cd; padding: 15px; margin: 10px 0; border-left: 4px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Dispute Opened</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hello {{ seller.username }},</h2>
+            <p>A dispute has been opened on one of your deals.</p>
+            
+            <div class="info-box">
+                <p><strong>Item:</strong> {{ deal.item_description }}</p>
+                <p><strong>Amount:</strong> ₦{{ deal.amount|floatformat:2 }}</p>
+                <p><strong>Buyer Email:</strong> {{ deal.buyer_email|default:"Not provided" }}</p>
+            </div>
+            
+            <div class="warning">
+                <p><strong>Dispute Reason:</strong></p>
+                <p>{{ dispute.reason }}</p>
+            </div>
+            
+            <h3>📋 What Happens Now:</h3>
+            <ol>
+                <li>The payment is frozen and cannot be released</li>
+                <li>Our admin team will review the dispute</li>
+                <li>You may be contacted for additional information</li>
+                <li>The admin will make a final decision (refund or release)</li>
+            </ol>
+            
+            <p><strong>💡 Tips:</strong></p>
+            <ul>
+                <li>Gather any proof of delivery (photos, tracking info)</li>
+                <li>Be ready to provide evidence if requested</li>
+                <li>Respond promptly to admin inquiries</li>
+            </ul>
+            
+            <a href="{{ frontend_url }}/merchant/deals/{{ deal.slug }}" class="button">View Dispute Details</a>
+        </div>
+        
+        <div class="footer">
+            <p>TrustPay - Secure Escrow Payments</p>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>

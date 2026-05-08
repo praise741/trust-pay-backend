@@ -19,10 +19,13 @@ class Deal(models.Model):
     seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='deals')
     buyer_email = models.EmailField(blank=True)
     buyer_phone = models.CharField(max_length=15, blank=True)
+    buyer_name = models.CharField(max_length=255, blank=True)
+    delivery_address = models.TextField(blank=True)
     item_description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     delivery_days = models.PositiveIntegerField(default=3)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING_PAYMENT')
+    tracking_number = models.CharField(max_length=100, blank=True)
 
     va_account_number = models.CharField(max_length=20, blank=True)
     va_bank_name = models.CharField(max_length=100, blank=True)

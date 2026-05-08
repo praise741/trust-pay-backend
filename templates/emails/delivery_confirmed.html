@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4CAF50; color: white; padding: 20px; text-align: center; }
+        .content { background: #f9f9f9; padding: 20px; margin: 20px 0; }
+        .button { background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; display: inline-block; margin: 10px 0; border-radius: 4px; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+        .amount { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        .info-box { background: white; padding: 15px; margin: 10px 0; border-left: 4px solid #4CAF50; }
+        .success { background: #d4edda; padding: 15px; margin: 10px 0; border-left: 4px solid #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✅ Payment Released!</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Congratulations, {{ seller.username }}!</h2>
+            <p>The buyer has confirmed delivery, and your payment has been released.</p>
+            
+            <div class="success">
+                <p><strong>✓ Deal Completed Successfully</strong></p>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>Item:</strong> {{ deal.item_description }}</p>
+                <p><strong>Total Amount:</strong> ₦{{ deal.amount|floatformat:2 }}</p>
+                <p><strong>TrustPay Fee ({{ deal.trust_fee_percent }}%):</strong> -₦{{ fee_amount|floatformat:2 }}</p>
+                <p><strong>Net Amount:</strong> <span class="amount">₦{{ net_amount|floatformat:2 }}</span></p>
+            </div>
+            
+            <h3>💰 Payout Details:</h3>
+            <p>The funds have been transferred to your registered bank account:</p>
+            <div class="info-box">
+                <p><strong>Bank:</strong> {{ seller.bank_name }}</p>
+                <p><strong>Account Number:</strong> {{ seller.bank_account_number }}</p>
+            </div>
+            
+            <p><strong>Note:</strong> It may take 1-2 business days for the funds to reflect in your account.</p>
+            
+            <a href="{{ frontend_url }}/merchant/deals/{{ deal.slug }}" class="button">View Deal Details</a>
+        </div>
+        
+        <div class="footer">
+            <p>TrustPay - Secure Escrow Payments</p>
+            <p>This is an automated email. Please do not reply.</p>
+        </div>
+    </div>
+</body>
+</html>

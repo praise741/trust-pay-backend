@@ -6,6 +6,7 @@ from django.utils import timezone
 from deals.models import Dispute, Deal, Transaction
 from deals.serializers import AdminDisputeSerializer, DealSerializer
 from payments.payaza import refund_buyer, payout_seller
+from deals.email_service import send_dispute_resolved_email
 
 
 class DisputeListView(generics.ListAPIView):
@@ -36,6 +37,7 @@ class DisputeResolveView(generics.GenericAPIView):
                 deal=dispute.deal, tx_type='REFUND', status='SUCCESS',
                 amount=dispute.deal.amount,
             )
+            resolution_type = 'refund'
         elif action == 'release':
             payout_seller(dispute.deal)
             dispute.status = 'RESOLVED_RELEASE'
@@ -45,6 +47,7 @@ class DisputeResolveView(generics.GenericAPIView):
                 deal=dispute.deal, tx_type='PAYOUT', status='SUCCESS',
                 amount=dispute.deal.amount,
             )
+            resolution_type = 'release'
         else:
             return Response(
                 {'error': 'action must be "refund" or "release"'},
@@ -54,6 +57,12 @@ class DisputeResolveView(generics.GenericAPIView):
         dispute.resolved_at = timezone.now()
         dispute.deal.save()
         dispute.save()
+        
+        # Send email notifications
+        try:
+            send_dispute_resolved_email(dispute.deal, dispute, resolution_type)
+        except Exception as e:
+            print(f"Failed to send dispute resolution emails: {e}")
 
         return Response({
             'dispute': AdminDisputeSerializer(dispute).data,
