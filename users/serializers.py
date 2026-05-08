@@ -43,6 +43,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
+    is_merchant = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = User
@@ -51,6 +52,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password')
+        is_merchant = validated_data.get('is_merchant', False)
         
         # If username is not provided or empty, use email prefix
         if not validated_data.get('username'):
@@ -64,17 +66,17 @@ class RegisterSerializer(serializers.ModelSerializer):
                     counter += 1
                 validated_data['username'] = username
             else:
-                # Fallback to random if no email either (unlikely due to validation)
                 import uuid
                 validated_data['username'] = f"user_{uuid.uuid4().hex[:8]}"
 
         user = User(**validated_data)
         user.set_password(password)
+        user.is_merchant = is_merchant
         user.save()
         
         # Create seller profile if merchant
-        if validated_data.get('is_merchant', False):
-            SellerProfile.objects.create(user=user)
+        if is_merchant:
+            SellerProfile.objects.get_or_create(user=user)
         
         return user
 
