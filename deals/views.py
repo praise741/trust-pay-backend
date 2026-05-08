@@ -48,17 +48,9 @@ class DealListCreateView(generics.ListCreateAPIView):
 
 class DealDetailView(generics.RetrieveAPIView):
     queryset = Deal.objects.all()
+    serializer_class = DealSerializer
     lookup_field = 'slug'
-
-    def get_permissions(self):
-        slug = self.kwargs.get('slug')
-        deal = generics.get_object_or_404(Deal, slug=slug)
-        if deal.status == 'PENDING_PAYMENT':
-            return [AllowAny()]
-        return [IsAuthenticated()]
-
-    def get_serializer_class(self):
-        return DealSerializer
+    permission_classes = [AllowAny]
 
 
 @api_view(['POST'])
