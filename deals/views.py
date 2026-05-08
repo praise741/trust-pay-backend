@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.db import transaction
 from django.db.models import Q
+from django.conf import settings
 from datetime import timedelta
 import random
 import string
@@ -150,3 +151,21 @@ def deal_dispute(request, slug):
         deal.status = 'DISPUTED'
         deal.save()
     return Response({'dispute_id': deal.dispute.id, 'status': 'OPEN'})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def deal_mock_pay(request, slug):
+    if not getattr(settings, 'PAYAZA_MOCK_MODE', False):
+        return Response({'error': 'Mock mode disabled'}, status=403)
+    deal = generics.get_object_or_404(Deal, slug=slug)
+    if deal.status != 'PENDING_PAYMENT':
+        return Response({'error': 'Deal is not pending payment'}, status=400)
+    deal.status = 'PAID'
+    deal.paid_at = timezone.now()
+    deal.save()
+    Transaction.objects.create(
+        deal=deal, tx_type='COLLECTION', status='SUCCESS',
+        amount=deal.amount, payaza_ref=f'mock-{deal.id}'
+    )
+    return Response({'status': 'Payment simulated', 'deal': DealSerializer(deal).data})

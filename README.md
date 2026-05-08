@@ -41,6 +41,7 @@ python manage.py runserver
 | `PAYAZA_PUBLIC_KEY` | Payaza public key | `PZ78-PKTEST-...` |
 | `PAYAZA_TENANT_ID` | Payaza tenant ID | `test` |
 | `PAYAZA_SECRET` | Payaza webhook secret | `your-webhook-secret-here` |
+| `PAYAZA_MOCK_MODE` | Enable mock Payaza responses | `True` |
 
 > Copy `.env.example` to `.env` and fill in your values. `.env` is already in `.gitignore`.
 
@@ -61,10 +62,11 @@ python manage.py runserver
 | GET | `/api/deals/` | List all deals | Yes |
 | POST | `/api/deals/` | Create a new deal | Yes |
 | GET | `/api/deals/{slug}/` | Get deal details | Yes |
-| POST | `/api/deals/{slug}/pay/` | Initiate payment (get VA) | Yes |
+| POST | `/api/deals/{slug}/pay/` | Initiate payment (get VA) | No |
+| POST | `/api/deals/{slug}/mock-pay/` | Simulate payment (dev only) | No |
 | POST | `/api/deals/{slug}/ship/` | Mark deal as shipped | Yes |
-| POST | `/api/deals/{slug}/confirm/` | Confirm delivery | Yes |
-| POST | `/api/deals/{slug}/dispute/` | Dispute a deal | Yes |
+| POST | `/api/deals/{slug}/confirm/` | Confirm delivery | No |
+| POST | `/api/deals/{slug}/dispute/` | Dispute a deal | No |
 
 ### Webhooks (`/api/webhooks/`)
 
@@ -96,6 +98,22 @@ python manage.py auto_release
 This finds deals in `SHIPPED` status whose `auto_release_at` time has passed and transitions them to `COMPLETED`, triggering a payout to the seller.
 
 ## Testing with Payaza Sandbox
+
+### Quick Demo (Mock Mode)
+
+For hackathon demos and local development, set `PAYAZA_MOCK_MODE=True` in `.env`. All Payaza calls return mock responses — no real API keys needed.
+
+```bash
+# 1. Create deal → get VA (mock returns fake account number)
+curl -X POST http://localhost:8000/api/deals/{slug}/pay/
+
+# 2. Simulate payment (replaces real webhook)
+curl -X POST http://localhost:8000/api/deals/{slug}/mock-pay/
+
+# 3. Continue flow: ship → confirm → payout (all mocked)
+```
+
+### Real Sandbox Testing
 
 1. **Set up sandbox credentials** in your `.env` file:
    ```env

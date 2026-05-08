@@ -14,6 +14,7 @@ A complete reference for frontend developers integrating with the TrustPay escro
 3. [Merchant Dashboard](#3-merchant-dashboard)
 4. [Payment Links](#4-payment-links)
 5. [Deal Lifecycle](#5-deal-lifecycle)
+   - 5.6.1 [Simulate Payment (Mock Mode)](#561-simulate-payment-mock-mode-only)
 6. [Webhooks](#6-webhooks)
 7. [Error Handling](#7-error-handling)
 8. [Rate Limits](#8-rate-limits)
@@ -795,6 +796,58 @@ Buyer confirms receipt of goods/services, triggering payout to seller.
 | 400 | Deal is not in SHIPPED status or has open dispute |
 | 404 | Deal not found |
 | 502 | Payout to seller failed (retry possible) |
+
+---
+
+### 5.6.1 Simulate Payment (Mock Mode Only)
+
+**For development/testing only.** Simulates a buyer paying into the virtual account without needing a real Payaza webhook.
+
+**Endpoint:** `POST /api/deals/{slug}/mock-pay/`  
+**Auth Required:** No  
+**Requires:** `PAYAZA_MOCK_MODE=True` in backend `.env`
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `slug` | string | Unique deal identifier |
+
+**Request Body:** None
+
+**Response (200 OK):**
+
+```json
+{
+  "status": "Payment simulated",
+  "deal": {
+    "id": "a3f8b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "slug": "iphone-15-pro-abc123",
+    "status": "PAID",
+    "paid_at": "2026-05-01T14:20:00Z"
+  }
+}
+```
+
+**Status Codes:**
+
+| Code | Meaning |
+|------|---------|
+| 200 | Payment simulated, deal marked PAID |
+| 400 | Deal is not in PENDING_PAYMENT status |
+| 403 | Mock mode is disabled |
+| 404 | Deal not found |
+
+**When to use this:**
+- During local development when Payaza sandbox webhooks aren't firing
+- For hackathon demos to show the full escrow flow end-to-end
+- For automated testing without real Payaza API calls
+
+**Frontend flow with mock-pay:**
+1. Call `POST /api/deals/{slug}/pay/` to get VA details
+2. Show VA details to user (they "transfer" money manually)
+3. After user confirms they paid, call `POST /api/deals/{slug}/mock-pay/` to simulate the webhook
+4. Deal status changes to `PAID`, seller can now ship
 
 ---
 
