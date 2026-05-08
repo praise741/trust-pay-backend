@@ -39,11 +39,12 @@ def validate_token_format(token):
 def google_login(request):
     """
     Google OAuth login endpoint
-    Expects: { "token": "google_id_token" } or { "credential": "google_id_token" }
+    Expects: { "token": "google_id_token", "user_type": "buyer|seller" } or { "credential": "google_id_token", "user_type": "buyer|seller" }
     Returns: { "access": "...", "refresh": "...", "user": {...} }
     """
     # Support both 'token' and 'credential' keys (different Google libraries use different keys)
     token = request.data.get('token') or request.data.get('credential')
+    user_type = request.data.get('user_type', 'buyer')  # Default to buyer if not specified
     
     if not token:
         logger.error("No token provided in request")
@@ -123,14 +124,14 @@ def google_login(request):
             user = User.objects.filter(email=email).first()
             
             if user:
-                # Link Google account to existing user
+                # Link Google account to existing user (don't change their role)
                 logger.info(f"Linking Google account to existing user: {email}")
                 user.google_id = google_id
                 user.email_verified = True
                 user.save()
             else:
                 # Create new user
-                logger.info(f"Creating new user for: {email}")
+                logger.info(f"Creating new user for: {email} with user_type: {user_type}")
                 username = email.split('@')[0]
                 # Ensure unique username
                 base_username = username
@@ -139,6 +140,9 @@ def google_login(request):
                     username = f"{base_username}{counter}"
                     counter += 1
                 
+                # Set is_merchant based on user_type
+                is_merchant = user_type == 'seller'
+                
                 user = User.objects.create(
                     username=username,
                     email=email,
@@ -146,11 +150,12 @@ def google_login(request):
                     first_name=given_name,
                     last_name=family_name,
                     email_verified=True,
+                    is_merchant=is_merchant,
                 )
                 user.set_unusable_password()
                 user.save()
                 
-                logger.info(f"New user created: {username}")
+                logger.info(f"New user created: {username} as {'seller' if is_merchant else 'buyer'}")
         
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
