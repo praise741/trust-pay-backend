@@ -25,10 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-u5&pvcb$ilt^ml0d!lf1=g47&=5n2^!+0y2r9$1w1lc1j0f9p#'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-u5&pvcb$ilt^ml0d!lf1=g47&=5n2^!+0y2r9$1w1lc1j0f9p#')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*']
 
@@ -39,7 +39,23 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
 ]
 
+# Allow all origins in development (for testing)
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
 CORS_ALLOW_CREDENTIALS = True
+
+# Additional CORS headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 
 # Application definition
@@ -73,6 +89,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serve static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -163,6 +180,9 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# Whitenoise configuration for serving static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # Media files
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -208,6 +228,39 @@ SOCIALACCOUNT_PROVIDERS = {
             'client_id': os.getenv('GOOGLE_CLIENT_ID', ''),
             'secret': os.getenv('GOOGLE_CLIENT_SECRET', ''),
             'key': '',
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
         }
     }
 }
+
+# Email Configuration
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend'  # Default to console for development
+)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+
+# CSRF Settings
+CSRF_TRUSTED_ORIGINS = [
+    'https://trust-pay-frontend.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173',
+]
+
+# Add your Render backend URL when deployed
+RENDER_EXTERNAL_URL = os.getenv('RENDER_EXTERNAL_URL', '')
+if RENDER_EXTERNAL_URL:
+    CSRF_TRUSTED_ORIGINS.append(RENDER_EXTERNAL_URL)
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_URL.replace('https://', '').replace('http://', ''))
+
