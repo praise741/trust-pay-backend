@@ -11,7 +11,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['username', 'password', 'email', 'phone', 'bank_name',
-                  'bank_account_number', 'bank_code', 'is_merchant']
+                  'bank_account_number', 'bank_code', 'bank_account_name', 'is_merchant']
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -30,32 +30,4 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'phone', 'bank_name',
-                  'bank_account_number', 'bank_code', 'is_merchant',
-                  'email_verified', 'phone_verified']
-
-
-class SellerProfileSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    email = serializers.EmailField(source='user.email', read_only=True)
-    
-    class Meta:
-        model = SellerProfile
-        fields = ['id', 'username', 'email', 'business_name', 'business_description',
-                  'profile_photo', 'instagram_handle', 'whatsapp_number',
-                  'twitter_handle', 'website_url', 'is_verified',
-                  'total_deals', 'completed_deals', 'completion_rate',
-                  'created_at', 'updated_at']
-        read_only_fields = ['id', 'username', 'email', 'is_verified',
-                           'total_deals', 'completed_deals', 'completion_rate',
-                           'created_at', 'updated_at']
-
-
-class PublicSellerProfileSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    
-    class Meta:
-        model = SellerProfile
-        fields = ['username', 'business_name', 'business_description',
-                  'profile_photo', 'instagram_handle', 'whatsapp_number',
-                  'twitter_handle', 'website_url', 'is_verified',
-                  'total_deals', 'completed_deals', 'completion_rate']
+                  'bank_account_number', 'bank_code', 'bank_account_name', 'is_merchant']
