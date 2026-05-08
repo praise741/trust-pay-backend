@@ -7,9 +7,22 @@ User = get_user_model()
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Custom JWT serializer to include user data with is_staff field"""
+    """Custom JWT serializer to include user data and support email login"""
     
     def validate(self, attrs):
+        # Allow login with email or username
+        username = attrs.get("username")
+        password = attrs.get("password")
+
+        if username and password:
+            # Check if username is actually an email
+            if "@" in username:
+                try:
+                    user = User.objects.get(email=username)
+                    attrs["username"] = user.username
+                except User.DoesNotExist:
+                    pass
+
         data = super().validate(attrs)
         
         # Add custom user data
@@ -17,6 +30,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'id': self.user.id,
             'username': self.user.username,
             'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
             'phone': self.user.phone,
             'is_merchant': self.user.is_merchant,
             'is_staff': self.user.is_staff,

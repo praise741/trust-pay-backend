@@ -119,15 +119,25 @@ def google_login(request):
         # Check if user exists with this Google ID
         user = User.objects.filter(google_id=google_id).first()
         
+        # Determine intended merchant status
+        is_merchant_intended = user_type == 'seller'
+        
         if not user:
             # Check if user exists with this email
             user = User.objects.filter(email=email).first()
             
             if user:
-                # Link Google account to existing user (don't change their role)
+                # Link Google account to existing user
                 logger.info(f"Linking Google account to existing user: {email}")
                 user.google_id = google_id
                 user.email_verified = True
+                # If they intended to be a seller and aren't yet, update them
+                if is_merchant_intended and not user.is_merchant:
+                    user.is_merchant = True
+                    # Create seller profile if it doesn't exist
+                    if not hasattr(user, 'seller_profile'):
+                        from .models import SellerProfile
+                        SellerProfile.objects.get_or_create(user=user)
                 user.save()
             else:
                 # Create new user
@@ -140,9 +150,6 @@ def google_login(request):
                     username = f"{base_username}{counter}"
                     counter += 1
                 
-                # Set is_merchant based on user_type
-                is_merchant = user_type == 'seller'
-                
                 user = User.objects.create(
                     username=username,
                     email=email,
@@ -150,12 +157,25 @@ def google_login(request):
                     first_name=given_name,
                     last_name=family_name,
                     email_verified=True,
-                    is_merchant=is_merchant,
+                    is_merchant=is_merchant_intended,
                 )
                 user.set_unusable_password()
                 user.save()
                 
-                logger.info(f"New user created: {username} as {'seller' if is_merchant else 'buyer'}")
+                # Create seller profile if merchant
+                if is_merchant_intended:
+                    from .models import SellerProfile
+                    SellerProfile.objects.get_or_create(user=user)
+                
+                logger.info(f"New user created: {username} as {'seller' if is_merchant_intended else 'buyer'}")
+        else:
+            # User exists by Google ID, update merchant status if needed
+            if is_merchant_intended and not user.is_merchant:
+                user.is_merchant = True
+                from .models import SellerProfile
+                SellerProfile.objects.get_or_create(user=user)
+                user.save()
+                logger.info(f"Updated existing Google user {user.username} to merchant")
         
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)

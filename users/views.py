@@ -15,6 +15,17 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
+class LogoutView(APIView):
+    """Logout view to clear sessions"""
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        # Clear session cookies if using Django sessions
+        from django.contrib.auth import logout as django_logout
+        django_logout(request)
+        return Response({'message': 'Logged out successfully'}, status=status.HTTP_200_OK)
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
