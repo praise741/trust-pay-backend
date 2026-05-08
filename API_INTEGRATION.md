@@ -14,7 +14,6 @@ A complete reference for frontend developers integrating with the TrustPay escro
 3. [Merchant Dashboard](#3-merchant-dashboard)
 4. [Payment Links](#4-payment-links)
 5. [Deal Lifecycle](#5-deal-lifecycle)
-   - 5.6.1 [Simulate Payment (Mock Mode)](#561-simulate-payment-mock-mode-only)
 6. [Webhooks](#6-webhooks)
 7. [Error Handling](#7-error-handling)
 8. [Rate Limits](#8-rate-limits)

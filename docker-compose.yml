@@ -1,0 +1,18 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - PAYAZA_MOCK_MODE=True
+      - SECRET_KEY=dev-secret-key-for-local
+    volumes:
+      - .:/app
+      - sqlite_data:/app/data
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  sqlite_data:

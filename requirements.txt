@@ -8,3 +8,6 @@ pillow>=10.0.0
 dj-rest-auth>=5.0.0
 google-auth>=2.23.0
 django-cors-headers>=4.3.0
+gunicorn>=21.2
+dj-database-url>=2.1
+psycopg2-binary>=2.9

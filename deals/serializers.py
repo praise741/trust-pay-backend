@@ -13,10 +13,14 @@ class DealSerializer(serializers.ModelSerializer):
 
 
 class DealCreateSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(read_only=True)
+    slug = serializers.SlugField(read_only=True)
+
     class Meta:
         model = Deal
         fields = ['item_description', 'amount', 'delivery_days',
-                  'buyer_email', 'buyer_phone', 'buyer_name', 'delivery_address']
+                  'buyer_email', 'buyer_phone', 'buyer_name', 'delivery_address',
+                  'status', 'slug']
 
 
 class DealPayResponseSerializer(serializers.Serializer):
