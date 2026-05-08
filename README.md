@@ -77,6 +77,7 @@ For detailed Phase 1 setup (Email, Google OAuth, Seller Profiles):
 | `PAYAZA_PUBLIC_KEY` | Payaza public key | `PZ78-PKTEST-...` |
 | `PAYAZA_TENANT_ID` | Payaza tenant ID | `test` |
 | `PAYAZA_SECRET` | Payaza webhook secret | `your-webhook-secret-here` |
+| `PAYAZA_MOCK_MODE` | Enable mock Payaza responses | `True` |
 | **`EMAIL_HOST_USER`** | Email address for sending | `your-email@gmail.com` |
 | **`EMAIL_HOST_PASSWORD`** | Email app password | `your-app-password` |
 | **`GOOGLE_CLIENT_ID`** | Google OAuth Client ID | `your-client-id` |
@@ -106,10 +107,11 @@ For detailed Phase 1 setup (Email, Google OAuth, Seller Profiles):
 | GET | `/api/deals/` | List all deals | Yes |
 | POST | `/api/deals/` | Create a new deal | Yes |
 | GET | `/api/deals/{slug}/` | Get deal details | Yes |
-| POST | `/api/deals/{slug}/pay/` | Initiate payment (get VA) | Yes |
+| POST | `/api/deals/{slug}/pay/` | Initiate payment (get VA) | No |
+| POST | `/api/deals/{slug}/mock-pay/` | Simulate payment (dev only) | No |
 | POST | `/api/deals/{slug}/ship/` | Mark deal as shipped | Yes |
-| POST | `/api/deals/{slug}/confirm/` | Confirm delivery | Yes |
-| POST | `/api/deals/{slug}/dispute/` | Dispute a deal | Yes |
+| POST | `/api/deals/{slug}/confirm/` | Confirm delivery | No |
+| POST | `/api/deals/{slug}/dispute/` | Dispute a deal | No |
 
 ### Merchant (`/api/merchant/`)
 
@@ -155,6 +157,22 @@ python manage.py auto_release
 This finds deals in `SHIPPED` status whose `auto_release_at` time has passed and transitions them to `COMPLETED`, triggering a payout to the seller.
 
 ## Testing with Payaza Sandbox
+
+### Quick Demo (Mock Mode)
+
+For hackathon demos and local development, set `PAYAZA_MOCK_MODE=True` in `.env`. All Payaza calls return mock responses — no real API keys needed.
+
+```bash
+# 1. Create deal → get VA (mock returns fake account number)
+curl -X POST http://localhost:8000/api/deals/{slug}/pay/
+
+# 2. Simulate payment (replaces real webhook)
+curl -X POST http://localhost:8000/api/deals/{slug}/mock-pay/
+
+# 3. Continue flow: ship → confirm → payout (all mocked)
+```
+
+### Real Sandbox Testing
 
 1. **Set up sandbox credentials** in your `.env` file:
    ```env

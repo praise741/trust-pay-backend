@@ -9,4 +9,5 @@ urlpatterns = [
     path('<slug:slug>/tracking/', views.update_tracking, name='update-tracking'),
     path('<slug:slug>/confirm/', views.deal_confirm, name='deal-confirm'),
     path('<slug:slug>/dispute/', views.deal_dispute, name='deal-dispute'),
+    path('<slug:slug>/mock-pay/', views.deal_mock_pay, name='deal-mock-pay'),
 ]
